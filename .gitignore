@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+__pycache__/
+*.pyc
+.skills_store_lock.json
+.idea/
+.vscode/
