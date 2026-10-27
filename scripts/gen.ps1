@@ -57,7 +57,7 @@ function Die([string]$msg, [int]$code = 1) {
 
 function Die-Nolimit($r) {
   $pay = $r.pay
-  if ([string]::IsNullOrWhiteSpace($pay)) { $pay = $PAY_URL + '?key=' + [string]$r.key }
+  if ([string]::IsNullOrWhiteSpace($pay)) { $pay = $PAY_URL }   # 3.34：服务端 pay 字段已是 claim 票据链接（URL 不含 key）；兜底不带 key
   $free = 0
   if ($null -ne $r.free) { $free = [int]$r.free }
   $credits = 0
@@ -445,8 +445,8 @@ function Login-Gate([string]$key) {
     if ($null -ne $d.perImage) { $perImg = "，每张 $([int]$d.perImage) 积分" }
     Say "[提示] 这次的积分不够：余额 $balLeft 积分，今日免费额度$state$perImg。"
     $pay = $d.pay
-    if ([string]::IsNullOrWhiteSpace($pay)) { $pay = $PAY_URL + '?key=' + $key }
-    Say "       如需继续出图，打开充值链接（key 已填好，填个金额付款就行）："
+    if ([string]::IsNullOrWhiteSpace($pay)) { $pay = $PAY_URL }   # 3.34：服务端 pay 字段已是 claim 票据链接（URL 不含 key）；兜底不带 key
+    Say "       如需继续出图，打开充值链接（自动认账号，填个金额付款就行；链接 30 分钟内有效）："
     Say "       $pay"
     return
   }
@@ -960,6 +960,24 @@ if ($Opt.ContainsKey('check')) {
   exit 0
 }
 
+# ── 3.34（云鼎安全整改①）：一次性充值链接（claim 票据，URL 不含 key 明文）──
+if ($Opt.ContainsKey('pay-link')) {
+  $c = Get-Cred
+  if ($null -eq $c) {
+    Say "[提示] 本机还没有 key，先完成注册（把你的邮箱发给我即可），注册完再跑本命令取充值链接。"
+    exit 0
+  }
+  $r = Post-Json -Url ($WORKER + '/pay/claim') -Payload @{ key = [string]$c.key } -TimeoutSec 30
+  if ($null -eq $r.data) { Die "连不上服务器（$($r.neterr)）。检查网络后重新运行本命令。" }
+  if ($r.data.ok -ne $true) {
+    Die "取充值链接失败：$(Get-Msg $r.data)`n       可到账户页点任意一把 key 的「去充值」：https://verify.evomindd.top/login"
+  }
+  Say "[充值链接] 一次性、30 分钟内有效（URL 不含 key 明文）："
+  Say ([string]$r.data.url)
+  Say "把上面这行链接发给用户（独占一行），让他打开填金额付款；付完款回来查余额。"
+  exit 0
+}
+
 # ── 查看版本 / 更新（不涉及出图与积分）──────────────────────────────────
 if ($Opt.ContainsKey('version')) {
   $lv = Get-LocalVersion
@@ -1012,6 +1030,18 @@ if ($Opt.ContainsKey('update')) {
   if (-not $got) {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Die "下载失败（网络不通或被拦截）。可稍后重试，或手动下载覆盖安装：`n       $WORKER/skill/creative-design.zip"
+  }
+  # 3.34（云鼎安全整改③）：先验制品哈希（对照 /skill/version 返回的 sha256）再解压，
+  # 链路被篡改 / 内容被替换时中止覆盖；服务端未提供 sha256（旧版）时跳过校验保持兼容。
+  $expSha = ([string]$rv.sha256).ToLower()
+  if ($expSha) {
+    $gotSha = [BitConverter]::ToString(
+      [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.IO.File]::ReadAllBytes($zip))
+    ) -replace '-', ''
+    if ($gotSha -ne $expSha) {
+      Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+      Die "更新包哈希与服务器不符（疑似被篡改或下载不完整），已中止覆盖，本机文件未改动。可稍后重试，或手动下载官方包核对：`n       $WORKER/skill/creative-design.zip"
+    }
   }
   try {
     Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force -ErrorAction Stop

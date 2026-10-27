@@ -154,14 +154,14 @@ def login_probe(key, timeout=20):
 
 def die_nolimit(r):
     """积分不够。给买家能直接照做的下一步，而不是一句『失败』就结束。"""
-    pay = r.get("pay") or PAY_URL + "?key=" + (r.get("key") or "")
+    pay = r.get("pay") or PAY_URL   # 3.34：服务端 pay 字段已是 claim 票据链接（URL 不含 key）；兜底不带 key
     free = int(r.get("free") or 0)
     have = int(r.get("credits") or 0) + free
     extra = f"（其中今日免费 {free}）" if free else ""
     trial = "，今日免费额度已用完" if r.get("trialUsedToday") else ""
     print(f"\n[提示] 这次要 {r.get('need', '?')} 积分，"
           f"你的账号还剩 {have} 积分{extra}{trial}，先充值再跑。\n"
-          f"       打开这个链接充值（key 已自动填好，填个金额付款就行）：\n"
+          f"       打开这个链接充值（自动认账号，填个金额付款就行；链接 30 分钟内有效）：\n"
           f"       {pay}\n"
           f"       付完款回来重新跑一次刚才的命令。\n", file=sys.stderr)
     sys.exit(2)
@@ -310,6 +310,16 @@ def do_update():
         if not ok:
             die(f"下载失败（网络不通或被拦截）。可稍后重试，或手动下载覆盖安装：\n"
                 f"       {WORKER}/skill/creative-design.zip")
+        # 3.34（云鼎安全整改③）：先验制品哈希（对照 /skill/version 返回的 sha256）再解压，
+        # 链路被篡改 / 内容被替换时中止覆盖；服务端未提供 sha256（旧版）时跳过校验保持兼容。
+        exp_sha = str(rv.get("sha256") or "").lower()
+        if exp_sha:
+            import hashlib
+            got_sha = hashlib.sha256(zpath.read_bytes()).hexdigest()
+            if got_sha != exp_sha:
+                die(f"更新包哈希与服务器不符（疑似被篡改或下载不完整），已中止覆盖，本机文件未改动。"
+                    f"可稍后重试，或手动下载官方包核对：\n"
+                    f"       {WORKER}/skill/creative-design.zip")
         with zipfile.ZipFile(zpath) as z:
             z.extractall(tmp)
         new_root = tmp / "creative-design"
@@ -491,8 +501,8 @@ def login_gate(key):
         state = f"还剩 {free} 积分" if free > 0 else "已用完"
         per_img = f"，每张 {int(r.get('perImage') or 0)} 积分" if r.get("perImage") else ""
         print(f"[提示] 这次的积分不够：余额 {bal} 积分，今日免费额度{state}{per_img}。")
-        pay = r.get("pay") or PAY_URL + "?key=" + (r.get("key") or key)
-        print(f"       如需继续出图，打开充值链接（key 已填好，填个金额付款就行）：")
+        pay = r.get("pay") or PAY_URL   # 3.34：服务端 pay 字段已是 claim 票据链接（URL 不含 key）
+        print(f"       如需继续出图，打开充值链接（自动认账号，填个金额付款就行；链接 30 分钟内有效）：")
         print(f"       {pay}")
         return
     if r.get("reason") == "used":
@@ -872,6 +882,8 @@ def main():
                     help="导入已有 key（换电脑场景）")
     ap.add_argument("--check", action="store_true",
                     help="只登录查余额，不出图")
+    ap.add_argument("--pay-link", action="store_true",
+                    help="取一次性充值链接（30 分钟有效，URL 不含 key 明文；发链接给用户前跑它）")
     ap.add_argument("--batch", metavar="MANIFEST",
                     help="批量出图（UTF-8 JSON 清单，含 items 数组）")
     ap.add_argument("--progress-file", metavar="PATH",
@@ -1022,6 +1034,22 @@ def main():
                   "或自己运行：python gen.py --send-code 你的邮箱")
             return
         login_gate(c["key"])
+        return
+    if args.pay_link:
+        # 3.34（云鼎安全整改①）：充值链接改服务端一次性 claim 票据，URL 不再带 key 明文。
+        c = load_cred()
+        if c is None:
+            print("[提示] 本机还没有 key，先完成注册（把你的邮箱发给我即可），注册完再跑本命令取充值链接。")
+            return
+        r, neterr = http_json(WORKER + "/pay/claim", {"key": c["key"]}, timeout=30)
+        if r is None:
+            die(f"连不上服务器（{neterr}）。检查网络后重新运行本命令。")
+        if r.get("ok") is not True:
+            die(f"取充值链接失败：{r.get('msg', r)}\n"
+                "       可到账户页点任意一把 key 的「去充值」：https://verify.evomindd.top/login")
+        print("[充值链接] 一次性、30 分钟内有效（URL 不含 key 明文）：")
+        print(r.get("url", ""))
+        print("把上面这行链接发给用户（独占一行），让他打开填金额付款；付完款回来查余额。")
         return
 
     if args.version:
