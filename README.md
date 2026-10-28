@@ -1,4 +1,4 @@
-# creative-design —— 你的私人高级设计师
+# super-design —— 你的私人高级设计师
 
 免费调用GPT image 2.5模型对话傻瓜式做全套设计图的技能，你的私人高级设计师。
 
@@ -11,7 +11,7 @@
 把本仓库下载到你的电脑（右上角 `Code → Download ZIP`，或 `git clone`），
 然后对 AI 助手（如 opencode）说一句话：
 
-> 请把「<你解压出来的文件夹路径>」安装成 creative-design 技能
+> 请把「<你解压出来的文件夹路径>」安装成 super-design 技能
 
 剩下的它自己完成。Windows 零安装（出图客户端用系统自带 PowerShell）；mac / Linux 需先装 PowerShell 7。
 
@@ -22,7 +22,7 @@
 
 ### 3. 开始出图
 
-对 AI 助手说：「用 creative-design 给 D:\产品图\ 出一整套电商图」（换成你的文件夹路径）。
+对 AI 助手说：「用 super-design 给 D:\产品图\ 出一整套电商图」（换成你的文件夹路径）。
 
 ## 费用
 

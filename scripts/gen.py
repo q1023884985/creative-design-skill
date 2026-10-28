@@ -286,7 +286,7 @@ def do_update():
     rv = remote_version(10)
     if not rv or rv.get("ok") is not True or not rv.get("latest"):
         die(f"查不到最新版本（网络或服务端不可达）。可稍后重试，或手动下载覆盖安装：\n"
-            f"       {WORKER}/skill/creative-design.zip")
+            f"       {WORKER}/skill/super-design.zip")
     latest = str(rv["latest"])
     if lv and compare_ver(latest, lv) <= 0:
         print(f"[OK] 已是最新版本 v{lv}，无需更新。")
@@ -297,8 +297,8 @@ def do_update():
         zpath = tmp / "pkg.zip"
         ok = False
         ts = int(time.time())
-        for url in (f"{WORKER}/skill/creative-design-v{latest}.zip?t={ts}",
-                    f"{WORKER}/skill/creative-design.zip?t={ts}"):
+        for url in (f"{WORKER}/skill/super-design-v{latest}.zip?t={ts}",
+                    f"{WORKER}/skill/super-design.zip?t={ts}"):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": HEADERS["User-Agent"]})
                 with urllib.request.urlopen(req, timeout=180) as r, open(zpath, "wb") as f:
@@ -309,7 +309,7 @@ def do_update():
                 continue
         if not ok:
             die(f"下载失败（网络不通或被拦截）。可稍后重试，或手动下载覆盖安装：\n"
-                f"       {WORKER}/skill/creative-design.zip")
+                f"       {WORKER}/skill/super-design.zip")
         # 3.34（云鼎安全整改③）：先验制品哈希（对照 /skill/version 返回的 sha256）再解压，
         # 链路被篡改 / 内容被替换时中止覆盖；服务端未提供 sha256（旧版）时跳过校验保持兼容。
         exp_sha = str(rv.get("sha256") or "").lower()
@@ -319,10 +319,10 @@ def do_update():
             if got_sha != exp_sha:
                 die(f"更新包哈希与服务器不符（疑似被篡改或下载不完整），已中止覆盖，本机文件未改动。"
                     f"可稍后重试，或手动下载官方包核对：\n"
-                    f"       {WORKER}/skill/creative-design.zip")
+                    f"       {WORKER}/skill/super-design.zip")
         with zipfile.ZipFile(zpath) as z:
             z.extractall(tmp)
-        new_root = tmp / "creative-design"
+        new_root = tmp / "super-design"
         new_md = new_root / "SKILL.md"
         if not new_md.is_file():
             die("更新包结构异常（缺 SKILL.md），已中止，本机文件未改动。")

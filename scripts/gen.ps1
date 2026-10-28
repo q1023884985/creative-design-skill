@@ -1025,7 +1025,7 @@ if ($Opt.ContainsKey('update')) {
   $lv = Get-LocalVersion
   $rv = Get-RemoteVersion 10
   if ($null -eq $rv -or $rv.ok -ne $true -or [string]::IsNullOrWhiteSpace([string]$rv.latest)) {
-    Die "查不到最新版本（网络或服务端不可达）。可稍后重试，或手动下载覆盖安装：`n       $WORKER/skill/creative-design.zip"
+    Die "查不到最新版本（网络或服务端不可达）。可稍后重试，或手动下载覆盖安装：`n       $WORKER/skill/super-design.zip"
   }
   $latest = [string]$rv.latest
   if (-not [string]::IsNullOrWhiteSpace($lv) -and (Compare-Ver $latest $lv) -le 0) {
@@ -1037,7 +1037,7 @@ if ($Opt.ContainsKey('update')) {
   New-Item -ItemType Directory -Path $tmp -Force | Out-Null
   $zip = Join-Path $tmp 'pkg.zip'
   $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-  $urls = @(($WORKER + '/skill/creative-design-v' + $latest + '.zip?t=' + $ts), ($WORKER + '/skill/creative-design.zip?t=' + $ts))
+  $urls = @(($WORKER + '/skill/super-design-v' + $latest + '.zip?t=' + $ts), ($WORKER + '/skill/super-design.zip?t=' + $ts))
   $got = $false
   foreach ($u in $urls) {
     try {
@@ -1048,7 +1048,7 @@ if ($Opt.ContainsKey('update')) {
   }
   if (-not $got) {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    Die "下载失败（网络不通或被拦截）。可稍后重试，或手动下载覆盖安装：`n       $WORKER/skill/creative-design.zip"
+    Die "下载失败（网络不通或被拦截）。可稍后重试，或手动下载覆盖安装：`n       $WORKER/skill/super-design.zip"
   }
   # 3.34（云鼎安全整改③）：先验制品哈希（对照 /skill/version 返回的 sha256）再解压，
   # 链路被篡改 / 内容被替换时中止覆盖；服务端未提供 sha256（旧版）时跳过校验保持兼容。
@@ -1059,7 +1059,7 @@ if ($Opt.ContainsKey('update')) {
     ) -replace '-', ''
     if ($gotSha -ne $expSha) {
       Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
-      Die "更新包哈希与服务器不符（疑似被篡改或下载不完整），已中止覆盖，本机文件未改动。可稍后重试，或手动下载官方包核对：`n       $WORKER/skill/creative-design.zip"
+      Die "更新包哈希与服务器不符（疑似被篡改或下载不完整），已中止覆盖，本机文件未改动。可稍后重试，或手动下载官方包核对：`n       $WORKER/skill/super-design.zip"
     }
   }
   try {
@@ -1068,7 +1068,7 @@ if ($Opt.ContainsKey('update')) {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Die "解压失败：$($_.Exception.Message)"
   }
-  $newRoot = Join-Path $tmp 'creative-design'
+  $newRoot = Join-Path $tmp 'super-design'
   $newMd = Join-Path $newRoot 'SKILL.md'
   if (-not (Test-Path -LiteralPath $newMd -PathType Leaf)) {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
