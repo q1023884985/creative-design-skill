@@ -231,7 +231,7 @@ function Show-UpdateHint {
   if ($lastVer -eq $latest -and ($now - $lastAt) -lt 86400) { return }
   Say ""
   Say "[版本] 技能有新版本：本地 v$local -> 最新 v$latest"
-  Say "       更新命令：scripts\gen.cmd update   （约 10 秒）"
+  Say "       更新命令：powershell -NoProfile -ExecutionPolicy Bypass -File scripts\gen.ps1 update   （约 10 秒）"
   Say "       更新后请重启 opencode 或新开会话，技能才会重新加载。"
   Say ""
   try {
@@ -394,14 +394,11 @@ function Register-Flow {
 function Invoke-Login {
   param([string]$Key, [int]$TimeoutSec = 20)
   $pr = Post-Json -Url ($WORKER + '/auth/login') -Payload @{ key = $Key; n = 1 } -TimeoutSec $TimeoutSec
-  # 网络失败（data 为 null）与 badkey/temp 一样要退避重试：
-  # 3.34 之前只重试后两种，网络抖一下就打印「连不上验证服务器」，买家误判服务故障。
-  for ($t = 0; $t -lt 3; $t++) {
-    if ($null -ne $pr.data) {
-      $why = [string]$pr.data.reason
-      if ($why -ne 'badkey' -and $why -ne 'temp') { break }
-    }
-    Start-Sleep -Milliseconds ([int](300 * [Math]::Pow(3, $t)))   # 300 / 900 / 2700ms
+  for ($t = 0; $t -lt 2; $t++) {
+    if ($null -eq $pr.data) { break }
+    $why = [string]$pr.data.reason
+    if ($why -ne 'badkey' -and $why -ne 'temp') { break }
+    Start-Sleep -Milliseconds (300 * [Math]::Pow(3, $t))   # 300ms / 900ms
     $pr = Post-Json -Url ($WORKER + '/auth/login') -Payload @{ key = $Key; n = 1 } -TimeoutSec $TimeoutSec
   }
   return $pr
@@ -410,11 +407,7 @@ function Invoke-Login {
 function Login-Gate([string]$key) {
   $r = Invoke-Login $key
   if ($null -eq $r.data) {
-    # 只提示一次：并发批量时每张都打一行会淹没真正的错误信息
-    if (-not $script:NetWarnShown) {
-      $script:NetWarnShown = $true
-      Say "[提示] 这轮没查到余额（不影响出图），出图完成行会显示真实余额。"
-    }
+    Say "[提醒] 连不上验证服务器（已重试），先照常用。"
     return
   }
   $d = $r.data
@@ -435,15 +428,8 @@ function Login-Gate([string]$key) {
     if ($null -ne $d.defaultModel) { $script:DefaultModel = [string]$d.defaultModel }
     # 免费额度每次都显示：free=0 时说「已用完」，不能静默（买家分不清「没有」和「没显示」）
     $freeTxt = '已用完'
-    if ($free -gt 0) {
-      # 免费额度就是 1 张：说「还剩 1 张」而不是「还剩 10 积分」——两个 10 挨在一起，弱模型必混
-      if ($per -gt 0 -and $free -eq $per) { $freeTxt = "还剩 1 张（$free 积分）" }
-      else { $freeTxt = "还剩 $free 积分" }
-    }
-    $line = ">> 账号就绪，余额 $bal 积分"
-    # 张数直接算好给它，别让模型自己除（买家侧实测：把 20 积分/张 10 算成「1 元 1 张」被用户当场纠正）
-    if ($per -gt 0 -and $bal -gt 0) { $line = $line + "（约可出 $([int][Math]::Floor($bal / $per)) 张）" }
-    $line = $line + "，今日免费额度$freeTxt"
+    if ($free -gt 0) { $freeTxt = "还剩 $free 积分" }
+    $line = ">> 账号就绪，余额 $bal 积分，今日免费额度$freeTxt"
     if ($per -gt 0) { $line = $line + "，每张 $per 积分" }
     Say $line
     return
@@ -733,9 +719,9 @@ function Show-Help {
 AI 生图（线上版）：官方渠道，按积分计费
 
 用法
-  gen.cmd --prompt "一只橘猫坐在窗边，暖光，写实摄影"
-  gen.cmd --prompt-file prompt.txt --out 图1.png
-  gen.cmd --prompt-file prompt.txt --ref 产品图.png --ref 细节图.png --out 精修.png
+  gen.ps1 --prompt "一只橘猫坐在窗边，暖光，写实摄影"
+  gen.ps1 --prompt-file prompt.txt --out 图1.png
+  gen.ps1 --prompt-file prompt.txt --ref 产品图.png --ref 细节图.png --out 精修.png
 
 常用参数
   --size     只决定画面比例，不是精确像素（服务端按比例出图）：
@@ -758,7 +744,6 @@ AI 生图（线上版）：官方渠道，按积分计费
   --progress-file 路径             批量出图的进度文件（默认 <输出目录>\_batch_progress.txt）
   --concurrency N                  批量出图并发数（默认 3；1 = 串行）
   --check                         只登录查余额，不出图
-  --pay-link                      取一次性充值链接（30 分钟内有效，URL 不含 key）
 
 版本与更新
   version                         查看本地版本与最新版本
@@ -791,17 +776,13 @@ while ($i -lt $a.Count) {
     '--concurrency'  { $i++; if ($i -lt $a.Count) { $Opt['concurrency'] = [int]$a[$i] } }
     '--pending-file' { $i++; if ($i -lt $a.Count) { $Opt['pending_file'] = [string]$a[$i] } }
     '--check'       { $Opt['check'] = $true }
-    '--pay-link'    { $Opt['pay-link'] = $true }
     '--help'        { $Opt['help'] = $true }
     '-h'            { $Opt['help'] = $true }
     '--version'     { $Opt['version'] = $true }
     'version'       { $Opt['version'] = $true }
     '--update'      { $Opt['update'] = $true }
     'update'        { $Opt['update'] = $true }
-    default         {
-      # 未知的 - 开头参数必须报错：静默忽略会让「参数没注册」伪装成「提示词是空的」
-      if ($t.StartsWith('-')) { Die "不认识的参数：$t`n       用 --help 查看全部参数。" }
-    }
+    default         { }
   }
   $i++
 }
@@ -1013,7 +994,7 @@ if ($Opt.ContainsKey('version')) {
   if (-not [string]::IsNullOrWhiteSpace($lv)) {
     if ((Compare-Ver $latest $lv) -gt 0) {
       Say ""
-      Say "有新版本可用。更新命令：scripts\gen.cmd update"
+      Say "有新版本可用。更新命令：powershell -NoProfile -ExecutionPolicy Bypass -File scripts\gen.ps1 update"
     } else {
       Say "已是最新。"
     }
@@ -1100,7 +1081,7 @@ if ($Opt.ContainsKey('update')) {
   }
   Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
   if ($failed.Count -gt 0) {
-    Die "有 $($failed.Count) 个文件被占用，未能覆盖：`n       $($failed -join ', ')`n       请重启 opencode 后再运行一次 scripts\gen.cmd update"
+    Die "有 $($failed.Count) 个文件被占用，未能覆盖：`n       $($failed -join ', ')`n       请重启 opencode 后再运行一次 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\gen.ps1 update"
   }
   Say ""
   Say "[OK] 已更新到 v$latest（共 $($files.Count) 个文件）。"
@@ -1456,12 +1437,8 @@ $note = ''
 if ($free -gt 0) { $note = " + 今日免费 $free" }
 $bal = '?'
 if ($null -ne $result.credits) { $bal = [string]$result.credits }
-$balTxt = "剩余 $bal 积分"
-if ($bal -ne '?' -and $script:PerImage -gt 0) {
-  $balTxt = $balTxt + "（约可出 $([int][Math]::Floor([int]$bal / $script:PerImage)) 张）"
-}
 Say ""
-Say "[完成] 用时 $dt s   $balTxt$note"
+Say "[完成] 用时 $dt s   剩余 $bal 积分$note"
 foreach ($w in $written) {
   $pxTxt = ''
   if (-not [string]::IsNullOrWhiteSpace([string]$w.px)) { $pxTxt = ", $($w.px)" }

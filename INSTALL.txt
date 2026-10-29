@@ -20,14 +20,11 @@ super-design 技能包 · 安装说明
 1. 在助手里说「帮我出一张图」；
 2. 助手会要你的邮箱 → 邮箱收到 6 位验证码 → 把数字发给它；
 3. 之后直接说需求就能出图（每个账号每天有 1 张免费图）。
-4. 免费那张用完后想继续出图：跟助手说一声「要充值」，它会给你一条充值链接
-   （1 元 = 20 积分，1 张图 = 10 积分，充多少你定，最少 1 元）。
-   也可以自己打开 https://verify.evomindd.top/login ，用邮箱登录后点任意一把 key 的「去充值」。
 
 版本与更新
 ----------
-scripts\gen.cmd version    查看当前版本
-scripts\gen.cmd update     更新到最新版（更新后重启一次助手才会重新加载）
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\gen.ps1 version    查看当前版本
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\gen.ps1 update     更新到最新版（更新后重启一次助手才会重新加载）
 
 安全说明（装之前可以先看一眼）
 ----------------------------
