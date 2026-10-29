@@ -7,7 +7,7 @@ description: 负责"抽象品牌标志本身"的设计与规范。承接：Logo 
 
 ## 主 Skill 路由适配
 
-本 ref 只提供 Logo 系统的产物规则。被 `creative-design` 路由调用时，工具协议、澄清轮次、核心资产记录和 prompt 总规则以主 `SKILL.md` 为准；本文件只补充 Logo 主版本、变体、规范页和文字门禁。
+本 ref 只提供 Logo 系统的产物规则。被 `super-design` 路由调用时，工具协议、澄清轮次、核心资产记录和 prompt 总规则以主 `SKILL.md` 为准；本文件只补充 Logo 主版本、变体、规范页和文字门禁。
 
 ## 概述
 

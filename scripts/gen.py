@@ -268,7 +268,7 @@ def show_update_hint():
         return
     print("")
     print(f"[版本] 技能有新版本：本地 v{local} -> 最新 v{latest}")
-    print("       更新命令：powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\gen.ps1 update   （约 10 秒）")
+    print("       更新命令：scripts\\gen.cmd update   （约 10 秒）")
     print("       更新后请重启 opencode 或新开会话，技能才会重新加载。")
     print("")
     try:
@@ -1064,7 +1064,7 @@ def main():
         if lv:
             if compare_ver(latest, lv) > 0:
                 print("")
-                print("有新版本可用。更新命令：powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\gen.ps1 update")
+                print("有新版本可用。更新命令：scripts\\gen.cmd update")
             else:
                 print("已是最新。")
         return
